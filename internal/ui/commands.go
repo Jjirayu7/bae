@@ -106,6 +106,7 @@ func HandleCommand(input string, m *ChatModel) (bool, tea.Cmd) {
 			})
 			return true, nil
 		}
+		m.agent.AddContext(string(content))
 
 		// Inject skill into context
 		m.entries = append(m.entries, ChatEntry{
@@ -175,6 +176,7 @@ func HandleCommand(input string, m *ChatModel) (bool, tea.Cmd) {
 		// Remove last turn (user message + agent response)
 		if len(m.entries) >= 2 {
 			m.entries = m.entries[:len(m.entries)-2]
+			m.agent.ResetConversation()
 			m.entries = append(m.entries, ChatEntry{
 				Type:    MsgSystem,
 				Sender:  "Rewind",
@@ -193,6 +195,7 @@ func HandleCommand(input string, m *ChatModel) (bool, tea.Cmd) {
 		// Compact history: keep system welcome and last 2 entries
 		if len(m.entries) > 4 {
 			kept := m.entries[len(m.entries)-3:]
+			m.agent.ResetConversation()
 			m.entries = append([]ChatEntry{
 				{
 					Type:    MsgSystem,

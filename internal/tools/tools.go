@@ -13,6 +13,27 @@ import (
 	"google.golang.org/genai"
 )
 
+var workspaceRoot, _ = os.Getwd()
+
+func resolveWorkspacePath(path string) (string, error) {
+	if path == "" {
+		path = "."
+	}
+	root, err := filepath.Abs(workspaceRoot)
+	if err != nil {
+		return "", err
+	}
+	clean, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	rel, err := filepath.Rel(root, clean)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("path %q is outside workspace", path)
+	}
+	return clean, nil
+}
+
 func GetToolDeclarations() []*genai.FunctionDeclaration {
 	return []*genai.FunctionDeclaration{
 		{
@@ -223,7 +244,11 @@ func ExecuteTool(ctx context.Context, name string, args map[string]any) (string,
 		if !ok || path == "" {
 			return "", fmt.Errorf("missing or invalid 'path' parameter")
 		}
-		return ReadFile(path)
+		resolved, err := resolveWorkspacePath(path)
+		if err != nil {
+			return "", err
+		}
+		return ReadFile(resolved)
 
 	case "edit_file":
 		path, ok := args["path"].(string)
@@ -232,7 +257,11 @@ func ExecuteTool(ctx context.Context, name string, args map[string]any) (string,
 		if !ok || !okTarget || !okRepl {
 			return "", fmt.Errorf("missing 'path', 'target', or 'replacement' parameter")
 		}
-		return EditFile(path, target, replacement)
+		resolved, err := resolveWorkspacePath(path)
+		if err != nil {
+			return "", err
+		}
+		return EditFile(resolved, target, replacement)
 
 	case "write_file":
 		path, ok := args["path"].(string)
@@ -240,7 +269,11 @@ func ExecuteTool(ctx context.Context, name string, args map[string]any) (string,
 		if !ok || !okContent {
 			return "", fmt.Errorf("missing 'path' or 'content' parameter")
 		}
-		return WriteFile(path, content)
+		resolved, err := resolveWorkspacePath(path)
+		if err != nil {
+			return "", err
+		}
+		return WriteFile(resolved, content)
 
 	case "search_code":
 		query, ok := args["query"].(string)
@@ -251,14 +284,22 @@ func ExecuteTool(ctx context.Context, name string, args map[string]any) (string,
 		if p, ok := args["path"].(string); ok && p != "" {
 			path = p
 		}
-		return SearchCode(ctx, query, path)
+		resolved, err := resolveWorkspacePath(path)
+		if err != nil {
+			return "", err
+		}
+		return SearchCode(ctx, query, resolved)
 
 	case "list_dir":
 		path := "."
 		if p, ok := args["path"].(string); ok && p != "" {
 			path = p
 		}
-		return ListDir(path)
+		resolved, err := resolveWorkspacePath(path)
+		if err != nil {
+			return "", err
+		}
+		return ListDir(resolved)
 
 	case "ov_find":
 		query, _ := args["query"].(string)
@@ -311,7 +352,6 @@ func ExecuteTool(ctx context.Context, name string, args map[string]any) (string,
 			return "[Notice]: Graphify CLI is not installed on this system.", nil
 		}
 		return RunBash(ctx, fmt.Sprintf("graphify path %q %q", from, to))
-		return RunBash(ctx, fmt.Sprintf("rtk proxy graphify path %q %q", from, to))
 
 	default:
 		return "", fmt.Errorf("unknown tool: %s", name)
