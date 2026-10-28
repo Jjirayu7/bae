@@ -7,18 +7,14 @@ Custom agent harness integrate with agy provider
 ## Quickstart
 
 ```bash
-# 1. Clone repository
 git clone <your-repo-url>
 cd bae
 
-# 2. Install (คอมไพล์และติดตั้งลง ~/.local/bin ทันที)
 ./install.sh
 # หรือใช้ make install
 
-# 3. ตรวจสอบความพร้อมของระบบ
 make doctor
 
-# 4. ใช้งาน
 bae
 ```
 
