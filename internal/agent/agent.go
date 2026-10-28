@@ -33,6 +33,7 @@ type Provider interface {
 
 type Agent struct {
 	provider Provider
+	context  string
 }
 
 func NewAgent(ctx context.Context, preferredProvider string, modelName string) (*Agent, error) {
@@ -71,11 +72,34 @@ func NewAgent(ctx context.Context, preferredProvider string, modelName string) (
 }
 
 func (a *Agent) Send(userInput string) (string, error) {
-	return a.provider.SendStream(context.Background(), userInput, nil)
+	return a.SendStream(context.Background(), userInput, nil)
 }
 
 func (a *Agent) SendStream(ctx context.Context, userInput string, onEvent StreamHandler) (string, error) {
+	if a.context != "" {
+		userInput = a.context + "\n\nUser Request:\n" + userInput
+	}
 	return a.provider.SendStream(ctx, userInput, onEvent)
+}
+
+// AddContext adds durable instructions to the current agent session.
+func (a *Agent) AddContext(content string) {
+	if strings.TrimSpace(content) == "" {
+		return
+	}
+	if a.context == "" {
+		a.context = "Active session context:\n" + content
+		return
+	}
+	a.context += "\n\n" + content
+}
+
+// ResetConversation drops provider-side conversation state and injected context.
+func (a *Agent) ResetConversation() {
+	a.context = ""
+	if p, ok := a.provider.(*AgyProvider); ok {
+		p.conversationID = ""
+	}
 }
 
 func (a *Agent) ProviderName() string {
@@ -232,8 +256,14 @@ func (p *AgyProvider) SendStream(ctx context.Context, userInput string, onEvent 
 			}
 		}
 	}
+	if err := scanner.Err(); err != nil {
+		_ = cmd.Wait()
+		return "", fmt.Errorf("failed reading agy output: %w", err)
+	}
 
-	_ = cmd.Wait()
+	if err := cmd.Wait(); err != nil && strings.TrimSpace(finalResponse) == "" {
+		return "", fmt.Errorf("agy exited with error: %w\n%s", err, stderr.String())
+	}
 
 	if strings.TrimSpace(finalResponse) == "" && stderr.Len() > 0 {
 		return "", fmt.Errorf("agy provider error: %s", stderr.String())

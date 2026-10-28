@@ -20,6 +20,8 @@ type AgentSender interface {
 	Send(userInput string) (string, error)
 	SendStream(ctx context.Context, userInput string, onEvent agent.StreamHandler) (string, error)
 	ProviderName() string
+	AddContext(content string)
+	ResetConversation()
 }
 
 type MessageType int
@@ -354,7 +356,10 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				listenForEvents(eventChan),
 				func() tea.Msg {
 					reply, err := m.agent.SendStream(ctx, inputVal, func(ev agent.StreamEvent) {
-						eventChan <- ev
+						select {
+						case eventChan <- ev:
+						case <-ctx.Done():
+						}
 					})
 					close(eventChan)
 					return responseMsg{text: reply, err: err}
@@ -464,7 +469,7 @@ func (m ChatModel) View() string {
 	inputBox := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("#45475A")).
-		Width(m.width - 2).
+		Width(m.width-2).
 		Padding(0, 1).
 		Render(m.input.View())
 

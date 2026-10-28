@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -78,6 +79,7 @@ func HandleCommand(input string, m *ChatModel) (bool, tea.Cmd) {
 			for name := range skills {
 				list = append(list, name)
 			}
+			sort.Strings(list)
 			msg := fmt.Sprintf("Available Skills (%d found):\n  Use '/skill <name>' to activate.\n\n  %s", len(list), strings.Join(list, ", "))
 			m.entries = append(m.entries, ChatEntry{
 				Type:    MsgSystem,
@@ -108,6 +110,7 @@ func HandleCommand(input string, m *ChatModel) (bool, tea.Cmd) {
 		}
 
 		// Inject skill into context
+		m.agent.AddContext(string(content))
 		m.entries = append(m.entries, ChatEntry{
 			Type:    MsgSystem,
 			Sender:  "Skill: " + args,
@@ -175,6 +178,7 @@ func HandleCommand(input string, m *ChatModel) (bool, tea.Cmd) {
 		// Remove last turn (user message + agent response)
 		if len(m.entries) >= 2 {
 			m.entries = m.entries[:len(m.entries)-2]
+			m.agent.ResetConversation()
 			m.entries = append(m.entries, ChatEntry{
 				Type:    MsgSystem,
 				Sender:  "Rewind",
@@ -193,6 +197,7 @@ func HandleCommand(input string, m *ChatModel) (bool, tea.Cmd) {
 		// Compact history: keep system welcome and last 2 entries
 		if len(m.entries) > 4 {
 			kept := m.entries[len(m.entries)-3:]
+			m.agent.ResetConversation()
 			m.entries = append([]ChatEntry{
 				{
 					Type:    MsgSystem,

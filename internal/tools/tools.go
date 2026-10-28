@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -311,7 +312,6 @@ func ExecuteTool(ctx context.Context, name string, args map[string]any) (string,
 			return "[Notice]: Graphify CLI is not installed on this system.", nil
 		}
 		return RunBash(ctx, fmt.Sprintf("graphify path %q %q", from, to))
-		return RunBash(ctx, fmt.Sprintf("rtk proxy graphify path %q %q", from, to))
 
 	default:
 		return "", fmt.Errorf("unknown tool: %s", name)
@@ -370,6 +370,9 @@ func EditFile(path, target, replacement string) (string, error) {
 	if count == 0 {
 		return "", fmt.Errorf("target string not found in '%s'. Make sure whitespace/indentation matches exactly", path)
 	}
+	if count > 1 {
+		return "", fmt.Errorf("target string occurs %d times in '%s'; refusing ambiguous edit", count, path)
+	}
 
 	newContent := strings.Replace(content, target, replacement, 1)
 	if err := os.WriteFile(path, []byte(newContent), 0644); err != nil {
@@ -427,6 +430,7 @@ func ListDir(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
 	var sb strings.Builder
 	for _, entry := range entries {
 		typeStr := "FILE"
