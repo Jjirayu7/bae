@@ -134,7 +134,6 @@ func NewChatModel(agent AgentSender) ChatModel {
 }
 
 func (m ChatModel) Init() tea.Cmd {
-	// Do NOT start continuous spinner ticks when idle to prevent redrawing and dropping text selection
 	return nil
 }
 
@@ -145,7 +144,6 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		spCmd tea.Cmd
 	)
 
-	// Only update spinner when actually thinking
 	if m.isThinking {
 		m.spinner, spCmd = m.spinner.Update(msg)
 	}
@@ -276,13 +274,11 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-			// If not thinking, clear input line without quitting the session
 			if m.input.Value() != "" {
 				m.input.Reset()
 			}
 			return m, nil
 
-		// Prompt History: Arrow Up
 		case tea.KeyUp:
 			if len(m.history) > 0 && m.historyIdx > 0 {
 				m.historyIdx--
@@ -291,7 +287,6 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-		// Prompt History: Arrow Down
 		case tea.KeyDown:
 			if len(m.history) > 0 && m.historyIdx < len(m.history)-1 {
 				m.historyIdx++
@@ -313,13 +308,11 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-			// Save to command history
 			if len(m.history) == 0 || m.history[len(m.history)-1] != inputVal {
 				m.history = append(m.history, inputVal)
 			}
 			m.historyIdx = len(m.history)
 
-			// Intercept ALL slash commands locally - ZERO tokens used!
 			if strings.HasPrefix(inputVal, "/") {
 				m.input.Reset()
 				stay, cmd := HandleCommand(inputVal, &m)
@@ -331,7 +324,6 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, cmd
 			}
 
-			// Add user message to conversation
 			m.entries = append(m.entries, ChatEntry{
 				Type:    MsgUser,
 				Sender:  "You",
@@ -343,11 +335,9 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.isThinking = true
 			m.statusInfo.State = "thinking"
 
-			// Create cancellable context
 			ctx, cancel := context.WithCancel(context.Background())
 			m.cancelPrompt = cancel
 
-			// Create live stream channel
 			eventChan := make(chan agent.StreamEvent, 50)
 			m.eventChan = eventChan
 
@@ -444,7 +434,6 @@ func (m ChatModel) View() string {
 		return "\n  Initializing Bae..."
 	}
 
-	// 1. Header Bar
 	headerLeft := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color("#00D1FF")).
@@ -465,7 +454,6 @@ func (m ChatModel) View() string {
 		Width(m.width).
 		Render(fmt.Sprintf("%s%s  %s", headerLeft, headerMid, headerRight))
 
-	// 2. Chatbox Input (Bordered ONLY for the input box)
 	inputBox := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("#45475A")).
@@ -473,7 +461,6 @@ func (m ChatModel) View() string {
 		Padding(0, 1).
 		Render(m.input.View())
 
-	// 3. Command Auto-Suggestions Palette or Thinking Spinner
 	var suggestionPalette string
 	if !m.isThinking && strings.HasPrefix(m.input.Value(), "/") {
 		suggestionPalette = RenderCommandSuggestions(m.input.Value(), m.width)
@@ -491,7 +478,6 @@ func (m ChatModel) View() string {
 			Render(fmt.Sprintf(" %s %s", m.spinner.View(), actionText))
 	}
 
-	// 4. Statusline Bar
 	statusline := RenderStatusline(m.statusInfo, m.width)
 
 	var midAlert string
@@ -510,7 +496,6 @@ func (m ChatModel) View() string {
 	)
 }
 
-// RunChatUI starts the fullscreen Bubble Tea Chat UI
 func RunChatUI(agent AgentSender) error {
 	p := tea.NewProgram(NewChatModel(agent), tea.WithAltScreen())
 	_, err := p.Run()

@@ -23,7 +23,6 @@ type StatusInfo struct {
 	TotalTurns int
 }
 
-// GetGitInfo returns the current git branch and dirty status
 func GetGitInfo(dir string) (string, bool) {
 	cmd := exec.Command("git", "branch", "--show-current")
 	cmd.Dir = dir
@@ -58,11 +57,9 @@ func GetGitInfo(dir string) (string, bool) {
 	return branch, isDirty
 }
 
-// RenderStatusline renders a clean ASCII terminal statusline
 func RenderStatusline(info StatusInfo, width int) string {
 	sep := lipgloss.NewStyle().Foreground(lipgloss.Color("#45475A")).Render(" | ")
 
-	// 1. Model Badge
 	modelStr := info.Model
 	if modelStr == "" {
 		modelStr = "Gemini"
@@ -72,7 +69,6 @@ func RenderStatusline(info StatusInfo, width int) string {
 		Foreground(lipgloss.Color("#00D1FF")).
 		Render(fmt.Sprintf("[MODEL: %s]", modelStr))
 
-	// 2. State Badge
 	var stateBadge string
 	switch strings.ToLower(info.State) {
 	case "thinking":
@@ -95,7 +91,6 @@ func RenderStatusline(info StatusInfo, width int) string {
 			Render("[IDLE]")
 	}
 
-	// 3. Working Directory Badge
 	cwd := info.Cwd
 	if cwd == "" {
 		cwd, _ = os.Getwd()
@@ -112,7 +107,6 @@ func RenderStatusline(info StatusInfo, width int) string {
 		Foreground(lipgloss.Color("#89B4FA")).
 		Render(fmt.Sprintf("[DIR: %s]", cwd))
 
-	// 4. Git Badge
 	var gitBadge string
 	branch, dirty := GetGitInfo(info.Cwd)
 	if branch != "" {
@@ -125,7 +119,6 @@ func RenderStatusline(info StatusInfo, width int) string {
 			Render(fmt.Sprintf("[GIT: %s%s]", branch, dirtyMark))
 	}
 
-	// 5. Time Badge
 	nowStr := time.Now().Format("15:04")
 	timeBadge := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#6C7086")).

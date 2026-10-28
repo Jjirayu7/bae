@@ -82,7 +82,6 @@ func (a *Agent) SendStream(ctx context.Context, userInput string, onEvent Stream
 	return a.provider.SendStream(ctx, userInput, onEvent)
 }
 
-// AddContext adds durable instructions to the current agent session.
 func (a *Agent) AddContext(content string) {
 	if strings.TrimSpace(content) == "" {
 		return
@@ -94,7 +93,6 @@ func (a *Agent) AddContext(content string) {
 	a.context += "\n\n" + content
 }
 
-// ResetConversation drops provider-side conversation state and injected context.
 func (a *Agent) ResetConversation() {
 	a.context = ""
 	if p, ok := a.provider.(*AgyProvider); ok {
@@ -124,9 +122,6 @@ const SystemPrompt = `You are Bae Agent, an ultra-efficient autonomous developer
 - OpenViking (ov_find, ov_search, ov_read): Persistent context database & cross-session memory retrieval.
 - Edit File (edit_file): Make exact targeted block replacements without rewriting whole files.`
 
-// -------------------------------------------------------------
-// Provider 1: Antigravity CLI Provider with Live NDJSON Streaming
-// -------------------------------------------------------------
 type AgyProvider struct {
 	binaryPath     string
 	modelName      string
@@ -272,9 +267,6 @@ func (p *AgyProvider) SendStream(ctx context.Context, userInput string, onEvent 
 	return strings.TrimRight(finalResponse, "\n"), nil
 }
 
-// -------------------------------------------------------------
-// Provider 2: Direct Gemini API Provider (via google.golang.org/genai)
-// -------------------------------------------------------------
 type GeminiProvider struct {
 	client *genai.Client
 	chat   *genai.Chat
