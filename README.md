@@ -1,10 +1,10 @@
-# Bae Agent CLI ⚡
+# Bae
 
-Custom Autonomous Developer Agent CLI written in **Go**, fully native with **RTK, OpenViking, Graphify, CocoIndex, Ponytail, and Caveman Mode**.
+Custom agent cli fully native with **RTK, OpenViking, Graphify, CocoIndex, Ponytail, and Caveman Mode**.
 
 ---
 
-## 🚀 1-Minute Quickstart (Clone & Run)
+## Quickstart
 
 ```bash
 # 1. Clone repository
@@ -18,15 +18,13 @@ cd bae
 # 3. ตรวจสอบความพร้อมของระบบ
 make doctor
 
-# 4. ใช้งานได้ทันที!
+# 4. ใช้งาน
 bae
 ```
 
 ---
 
-## ⚡ Slash Commands (ทำงาน Local 100% กิน 0 Token)
-
-พิมพ์ `/` ในช่องแชท จะมี **Auto-suggest Palette** ขึ้นมาให้ทันที (กด `Tab` เพื่อเติมคำอัตโนมัติ):
+## Commands
 
 | คำสั่ง | รายละเอียด |
 | :--- | :--- |
@@ -44,16 +42,7 @@ bae
 
 ---
 
-## ⌨️ Shortcuts
-
-* **`Tab`**: เติมคำสั่งอัตโนมัติ (Autocomplete slash commands)
-* **`Arrow Up` (↑)** / **`Arrow Down` (↓)**: วนดูประวัติคำสั่งที่เคยพิมพ์
-* **`Esc`**: ยกเลิกการคิดของโมเดลทันที (Cancel in-progress prompt) โดยไม่หลุดออกจาก Session
-* **`Mouse Drag`**: คลุมดำข้อความและโค้ดเพื่อ `Cmd + C` ได้อย่างแม่นยำ
-
----
-
-## 🛠️ Project Structure
+## Project Structure
 
 ```
 bae/
