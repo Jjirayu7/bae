@@ -48,3 +48,9 @@ func TestRunBashHonorsContextCancellation(t *testing.T) {
 		t.Fatal("expected cancelled command to fail")
 	}
 }
+
+func TestRunBashBlocksDangerousCommands(t *testing.T) {
+	if _, err := RunBash(context.Background(), "rm -rf ./tmp"); err == nil {
+		t.Fatal("expected dangerous command to be blocked")
+	}
+}

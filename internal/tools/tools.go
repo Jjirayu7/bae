@@ -28,7 +28,18 @@ func resolveWorkspacePath(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	rel, err := filepath.Rel(root, clean)
+	resolved := clean
+	if _, err := os.Stat(clean); err == nil {
+		resolved, err = filepath.EvalSymlinks(clean)
+	} else {
+		parent := filepath.Dir(clean)
+		resolvedParent, resolveErr := filepath.EvalSymlinks(parent)
+		if resolveErr != nil {
+			return "", resolveErr
+		}
+		resolved = filepath.Join(resolvedParent, filepath.Base(clean))
+	}
+	rel, err := filepath.Rel(root, resolved)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return "", fmt.Errorf("path %q is outside workspace", path)
 	}
@@ -364,6 +375,9 @@ func RunBash(ctx context.Context, command string) (string, error) {
 	defer cancel()
 
 	cmdToRun := strings.TrimSpace(command)
+	if err := validateCommand(cmdToRun); err != nil {
+		return "", err
+	}
 	if _, err := exec.LookPath("rtk"); err == nil {
 		if !strings.HasPrefix(cmdToRun, "rtk ") && !strings.HasPrefix(cmdToRun, "rtk\t") {
 			cmdToRun = "rtk proxy " + cmdToRun
@@ -371,6 +385,7 @@ func RunBash(ctx context.Context, command string) (string, error) {
 	}
 
 	cmd := exec.CommandContext(ctx, "sh", "-c", cmdToRun)
+	cmd.Dir = workspaceRoot
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -390,6 +405,17 @@ func RunBash(ctx context.Context, command string) (string, error) {
 		out = "(command executed with no output)"
 	}
 	return out, nil
+}
+
+func validateCommand(command string) error {
+	lower := strings.ToLower(command)
+	blocked := []string{"sudo ", "rm -rf", "rm -r ", "mkfs", "dd if=", ":(){", "curl | sh", "wget | sh", "chmod 777", "chown "}
+	for _, pattern := range blocked {
+		if strings.Contains(lower, pattern) {
+			return fmt.Errorf("command blocked by safety policy: %s", pattern)
+		}
+	}
+	return nil
 }
 
 func ReadFile(path string) (string, error) {
