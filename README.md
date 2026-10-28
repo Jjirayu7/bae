@@ -11,7 +11,7 @@ git clone <your-repo-url>
 cd bae
 
 ./install.sh
-# หรือใช้ make install
+#make install
 
 make doctor
 
