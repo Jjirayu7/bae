@@ -1,6 +1,6 @@
 # Bae
 
-Custom agent cli fully native with **RTK, OpenViking, Graphify, CocoIndex, Ponytail, and Caveman Mode**.
+Custom agent harness integrate with agy provider
 
 ---
 
