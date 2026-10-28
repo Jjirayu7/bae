@@ -88,9 +88,9 @@ func (a *Agent) AddContext(content string) {
 	}
 	if a.context == "" {
 		a.context = "Active session context:\n" + content
-		return
+	} else {
+		a.context += "\n\n" + content
 	}
-	a.context += "\n\n" + content
 }
 
 func (a *Agent) ResetConversation() {
@@ -144,7 +144,7 @@ func (p *AgyProvider) Send(userInput string) (string, error) {
 }
 
 func (p *AgyProvider) SendStream(ctx context.Context, userInput string, onEvent StreamHandler) (string, error) {
-	args := []string{"--output-format", "stream-json", "--dangerously-skip-permissions"}
+	args := []string{"--output-format", "stream-json"}
 
 	prompt := userInput
 	if p.conversationID == "" {

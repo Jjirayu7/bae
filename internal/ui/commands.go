@@ -105,7 +105,6 @@ func HandleCommand(input string, m *ChatModel) (bool, tea.Cmd) {
 			})
 			return true, nil
 		}
-
 		m.agent.AddContext(string(content))
 		m.entries = append(m.entries, ChatEntry{
 			Type:    MsgSystem,

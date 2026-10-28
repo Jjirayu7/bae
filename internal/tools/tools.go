@@ -14,6 +14,47 @@ import (
 	"google.golang.org/genai"
 )
 
+var workspaceRoot, _ = os.Getwd()
+
+func resolveWorkspacePath(path string) (string, error) {
+	if path == "" {
+		path = "."
+	}
+	root, err := filepath.Abs(workspaceRoot)
+	if err != nil {
+		return "", err
+	}
+	root, err = filepath.EvalSymlinks(root)
+	if err != nil {
+		return "", err
+	}
+	clean, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	resolved := clean
+	for candidate := clean; ; candidate = filepath.Dir(candidate) {
+		resolvedCandidate, resolveErr := filepath.EvalSymlinks(candidate)
+		if resolveErr == nil {
+			relative, relErr := filepath.Rel(candidate, clean)
+			if relErr != nil {
+				return "", relErr
+			}
+			resolved = filepath.Join(resolvedCandidate, relative)
+			break
+		}
+		parent := filepath.Dir(candidate)
+		if parent == candidate {
+			return "", fmt.Errorf("cannot resolve path %q", path)
+		}
+	}
+	rel, err := filepath.Rel(root, resolved)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("path %q is outside workspace", path)
+	}
+	return resolved, nil
+}
+
 func GetToolDeclarations() []*genai.FunctionDeclaration {
 	return []*genai.FunctionDeclaration{
 		{
@@ -224,7 +265,11 @@ func ExecuteTool(ctx context.Context, name string, args map[string]any) (string,
 		if !ok || path == "" {
 			return "", fmt.Errorf("missing or invalid 'path' parameter")
 		}
-		return ReadFile(path)
+		resolved, err := resolveWorkspacePath(path)
+		if err != nil {
+			return "", err
+		}
+		return ReadFile(resolved)
 
 	case "edit_file":
 		path, ok := args["path"].(string)
@@ -233,7 +278,11 @@ func ExecuteTool(ctx context.Context, name string, args map[string]any) (string,
 		if !ok || !okTarget || !okRepl {
 			return "", fmt.Errorf("missing 'path', 'target', or 'replacement' parameter")
 		}
-		return EditFile(path, target, replacement)
+		resolved, err := resolveWorkspacePath(path)
+		if err != nil {
+			return "", err
+		}
+		return EditFile(resolved, target, replacement)
 
 	case "write_file":
 		path, ok := args["path"].(string)
@@ -241,7 +290,11 @@ func ExecuteTool(ctx context.Context, name string, args map[string]any) (string,
 		if !ok || !okContent {
 			return "", fmt.Errorf("missing 'path' or 'content' parameter")
 		}
-		return WriteFile(path, content)
+		resolved, err := resolveWorkspacePath(path)
+		if err != nil {
+			return "", err
+		}
+		return WriteFile(resolved, content)
 
 	case "search_code":
 		query, ok := args["query"].(string)
@@ -252,14 +305,22 @@ func ExecuteTool(ctx context.Context, name string, args map[string]any) (string,
 		if p, ok := args["path"].(string); ok && p != "" {
 			path = p
 		}
-		return SearchCode(ctx, query, path)
+		resolved, err := resolveWorkspacePath(path)
+		if err != nil {
+			return "", err
+		}
+		return SearchCode(ctx, query, resolved)
 
 	case "list_dir":
 		path := "."
 		if p, ok := args["path"].(string); ok && p != "" {
 			path = p
 		}
-		return ListDir(path)
+		resolved, err := resolveWorkspacePath(path)
+		if err != nil {
+			return "", err
+		}
+		return ListDir(resolved)
 
 	case "ov_find":
 		query, _ := args["query"].(string)
@@ -323,6 +384,9 @@ func RunBash(ctx context.Context, command string) (string, error) {
 	defer cancel()
 
 	cmdToRun := strings.TrimSpace(command)
+	if err := validateCommand(cmdToRun); err != nil {
+		return "", err
+	}
 	if _, err := exec.LookPath("rtk"); err == nil {
 		if !strings.HasPrefix(cmdToRun, "rtk ") && !strings.HasPrefix(cmdToRun, "rtk\t") {
 			cmdToRun = "rtk proxy " + cmdToRun
@@ -330,6 +394,7 @@ func RunBash(ctx context.Context, command string) (string, error) {
 	}
 
 	cmd := exec.CommandContext(ctx, "sh", "-c", cmdToRun)
+	cmd.Dir = workspaceRoot
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -349,6 +414,31 @@ func RunBash(ctx context.Context, command string) (string, error) {
 		out = "(command executed with no output)"
 	}
 	return out, nil
+}
+
+func validateCommand(command string) error {
+	lower := strings.ToLower(command)
+	if strings.ContainsAny(command, ";|&><$`\n\r") {
+		return fmt.Errorf("command blocked by safety policy: shell operators are not allowed")
+	}
+	parts := strings.Fields(lower)
+	if len(parts) == 0 {
+		return fmt.Errorf("command cannot be empty")
+	}
+	commandName := parts[0]
+	if commandName == "rtk" && len(parts) >= 3 && parts[1] == "proxy" {
+		commandName = parts[2]
+	}
+	allowed := map[string]bool{
+		"awk": true, "cat": true, "ccc": true, "find": true, "git": true,
+		"go": true, "graphify": true, "grep": true, "head": true, "ls": true,
+		"ov": true, "pwd": true, "rg": true, "sed": true, "tail": true,
+		"which": true,
+	}
+	if !allowed[commandName] {
+		return fmt.Errorf("command blocked by safety policy: %s is not allowlisted", commandName)
+	}
+	return nil
 }
 
 func ReadFile(path string) (string, error) {
