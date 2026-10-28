@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -26,7 +27,6 @@ var SlashCommands = []string{
 	"/exit",
 }
 
-// FindSkills searches skill directories and returns map of skillName -> path
 func FindSkills() map[string]string {
 	skills := make(map[string]string)
 	home, _ := os.UserHomeDir()
@@ -53,7 +53,6 @@ func FindSkills() map[string]string {
 	return skills
 }
 
-// MemoryFilePath returns path to persistent memories
 func MemoryFilePath() string {
 	home, _ := os.UserHomeDir()
 	dir := filepath.Join(home, ".gemini", "bae")
@@ -61,7 +60,6 @@ func MemoryFilePath() string {
 	return filepath.Join(dir, "preferences.md")
 }
 
-// HandleCommand processes slash commands locally without using tokens
 func HandleCommand(input string, m *ChatModel) (bool, tea.Cmd) {
 	parts := strings.Fields(input)
 	if len(parts) == 0 {
@@ -78,6 +76,7 @@ func HandleCommand(input string, m *ChatModel) (bool, tea.Cmd) {
 			for name := range skills {
 				list = append(list, name)
 			}
+			sort.Strings(list)
 			msg := fmt.Sprintf("Available Skills (%d found):\n  Use '/skill <name>' to activate.\n\n  %s", len(list), strings.Join(list, ", "))
 			m.entries = append(m.entries, ChatEntry{
 				Type:    MsgSystem,
@@ -108,7 +107,7 @@ func HandleCommand(input string, m *ChatModel) (bool, tea.Cmd) {
 		}
 		m.agent.AddContext(string(content))
 
-		// Inject skill into context
+		m.agent.AddContext(string(content))
 		m.entries = append(m.entries, ChatEntry{
 			Type:    MsgSystem,
 			Sender:  "Skill: " + args,
@@ -173,7 +172,6 @@ func HandleCommand(input string, m *ChatModel) (bool, tea.Cmd) {
 		return true, nil
 
 	case "/rewind", "/undo":
-		// Remove last turn (user message + agent response)
 		if len(m.entries) >= 2 {
 			m.entries = m.entries[:len(m.entries)-2]
 			m.agent.ResetConversation()
@@ -192,7 +190,6 @@ func HandleCommand(input string, m *ChatModel) (bool, tea.Cmd) {
 		return true, nil
 
 	case "/compact":
-		// Compact history: keep system welcome and last 2 entries
 		if len(m.entries) > 4 {
 			kept := m.entries[len(m.entries)-3:]
 			m.agent.ResetConversation()
@@ -312,7 +309,6 @@ Shortcuts:
 	}
 }
 
-// RenderCommandSuggestions renders an auto-suggest popup when typing a slash command
 func RenderCommandSuggestions(input string, width int) string {
 	if !strings.HasPrefix(input, "/") {
 		return ""
