@@ -31,7 +31,6 @@ var (
 			MarginBottom(1)
 )
 
-// FormatDiffText colors a raw git diff or unified diff string
 func FormatDiffText(diffText string) string {
 	lines := strings.Split(diffText, "\n")
 	var styledLines []string
@@ -53,11 +52,9 @@ func FormatDiffText(diffText string) string {
 	return strings.Join(styledLines, "\n")
 }
 
-// RenderCodeChange generates and renders a colored diff between target and replacement
 func RenderCodeChange(filePath, target, replacement string, width int) string {
 	rawDiff := udiff.Unified("a/"+filePath, "b/"+filePath, target, replacement)
 	if strings.TrimSpace(rawDiff) == "" {
-		// If udiff produces empty due to context, generate simple +/- diff
 		var sb strings.Builder
 		sb.WriteString("--- a/" + filePath + "\n")
 		sb.WriteString("+++ b/" + filePath + "\n")
