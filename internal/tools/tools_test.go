@@ -41,6 +41,29 @@ func TestResolveWorkspacePathRejectsOutsidePath(t *testing.T) {
 	}
 }
 
+func TestResolveWorkspacePathRejectsSymlinkEscape(t *testing.T) {
+	tmp := t.TempDir()
+	link := filepath.Join(workspaceRoot, ".test-workspace-link")
+	if err := os.Symlink(tmp, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Remove(link) })
+	if _, err := resolveWorkspacePath(filepath.Join(link, "secret.txt")); err == nil {
+		t.Fatal("expected symlink escape to be rejected")
+	}
+}
+
+func TestResolveWorkspacePathAllowsNewFileInWorkspace(t *testing.T) {
+	path := filepath.Join(workspaceRoot, ".test-new-dir", "file.txt")
+	resolved, err := resolveWorkspacePath(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved != path {
+		t.Fatalf("got %q, want %q", resolved, path)
+	}
+}
+
 func TestRunBashHonorsContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -52,5 +75,8 @@ func TestRunBashHonorsContextCancellation(t *testing.T) {
 func TestRunBashBlocksDangerousCommands(t *testing.T) {
 	if _, err := RunBash(context.Background(), "rm -rf ./tmp"); err == nil {
 		t.Fatal("expected dangerous command to be blocked")
+	}
+	if _, err := RunBash(context.Background(), "go test ./... | cat"); err == nil {
+		t.Fatal("expected shell pipeline to be blocked")
 	}
 }

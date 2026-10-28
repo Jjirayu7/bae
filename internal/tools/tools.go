@@ -24,26 +24,35 @@ func resolveWorkspacePath(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	root, err = filepath.EvalSymlinks(root)
+	if err != nil {
+		return "", err
+	}
 	clean, err := filepath.Abs(path)
 	if err != nil {
 		return "", err
 	}
 	resolved := clean
-	if _, err := os.Stat(clean); err == nil {
-		resolved, err = filepath.EvalSymlinks(clean)
-	} else {
-		parent := filepath.Dir(clean)
-		resolvedParent, resolveErr := filepath.EvalSymlinks(parent)
-		if resolveErr != nil {
-			return "", resolveErr
+	for candidate := clean; ; candidate = filepath.Dir(candidate) {
+		resolvedCandidate, resolveErr := filepath.EvalSymlinks(candidate)
+		if resolveErr == nil {
+			relative, relErr := filepath.Rel(candidate, clean)
+			if relErr != nil {
+				return "", relErr
+			}
+			resolved = filepath.Join(resolvedCandidate, relative)
+			break
 		}
-		resolved = filepath.Join(resolvedParent, filepath.Base(clean))
+		parent := filepath.Dir(candidate)
+		if parent == candidate {
+			return "", fmt.Errorf("cannot resolve path %q", path)
+		}
 	}
 	rel, err := filepath.Rel(root, resolved)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return "", fmt.Errorf("path %q is outside workspace", path)
 	}
-	return clean, nil
+	return resolved, nil
 }
 
 func GetToolDeclarations() []*genai.FunctionDeclaration {
@@ -409,11 +418,25 @@ func RunBash(ctx context.Context, command string) (string, error) {
 
 func validateCommand(command string) error {
 	lower := strings.ToLower(command)
-	blocked := []string{"sudo ", "rm -rf", "rm -r ", "mkfs", "dd if=", ":(){", "curl | sh", "wget | sh", "chmod 777", "chown "}
-	for _, pattern := range blocked {
-		if strings.Contains(lower, pattern) {
-			return fmt.Errorf("command blocked by safety policy: %s", pattern)
-		}
+	if strings.ContainsAny(command, ";|&><$`\n\r") {
+		return fmt.Errorf("command blocked by safety policy: shell operators are not allowed")
+	}
+	parts := strings.Fields(lower)
+	if len(parts) == 0 {
+		return fmt.Errorf("command cannot be empty")
+	}
+	commandName := parts[0]
+	if commandName == "rtk" && len(parts) >= 3 && parts[1] == "proxy" {
+		commandName = parts[2]
+	}
+	allowed := map[string]bool{
+		"awk": true, "cat": true, "ccc": true, "find": true, "git": true,
+		"go": true, "graphify": true, "grep": true, "head": true, "ls": true,
+		"ov": true, "pwd": true, "rg": true, "sed": true, "tail": true,
+		"which": true,
+	}
+	if !allowed[commandName] {
+		return fmt.Errorf("command blocked by safety policy: %s is not allowlisted", commandName)
 	}
 	return nil
 }
